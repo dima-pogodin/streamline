@@ -3,7 +3,6 @@ import pandas as pd
 import plotly.graph_objects as go
 from datetime import timedelta
 import os
-from combine import combine_data  # если нужно объединять данные
 
 # -----------------------------
 # Настройки страницы
