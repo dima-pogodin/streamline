@@ -19,66 +19,56 @@ st.sidebar.markdown("### Выберите инструмент и настрой
 # Выбор инструмента
 # -----------------------------
 data_root = "data"
+
+if not os.path.exists(data_root):
+    st.error("Папка data не найдена!")
+    st.stop()
+
 available_instruments = [
     d for d in os.listdir(data_root)
     if os.path.isdir(os.path.join(data_root, d))
 ]
 
+if not available_instruments:
+    st.error("Нет доступных инструментов в папке data/")
+    st.stop()
+
 instrument = st.sidebar.selectbox("Выберите инструмент:", available_instruments)
 
 # -----------------------------
-# Пути для выбранного инструмента
+# Пути
 # -----------------------------
 instr_dir = os.path.join(data_root, instrument)
 data_file = os.path.join(instr_dir, "data.csv")
 pred_dir = os.path.join(instr_dir, "predictions")
 
 # -----------------------------
-# Кнопки: объединение и загрузка данных
+# Загрузка данных (без кнопки)
 # -----------------------------
-col1, col2 = st.sidebar.columns(2)
-with col1:
-    combine_clicked = st.button("🔄 Объединить данные")
-with col2:
-    load_clicked = st.button("📥 Загрузить данные")
+@st.cache_data
+def load_data(path):
+    df = pd.read_csv(path, encoding="utf-8-sig")
+
+    if "<DATE>" in df.columns:
+        df["date"] = pd.to_datetime(
+            df["<DATE>"].astype(str) + " " + df["<TIME>"].astype(str) + ":00:00"
+        )
+    elif "date" in df.columns:
+        df["date"] = pd.to_datetime(df["date"])
+    else:
+        return None
+
+    return df
+
+
+df = load_data(data_file)
+
+if df is None:
+    st.error("Ошибка: нет колонки с датой")
+    st.stop()
 
 # -----------------------------
-# Объединение
-# -----------------------------
-if combine_clicked:
-    try:
-        combine_data()  # объединяет файлы в data_file
-        st.sidebar.success("Данные объединены")
-    except Exception as e:
-        st.sidebar.error(f"Ошибка объединения: {e}")
-
-# -----------------------------
-# Загрузка данных
-# -----------------------------
-if load_clicked or "df" not in st.session_state or st.session_state.get("instrument") != instrument:
-    try:
-        df = pd.read_csv(data_file, encoding="utf-8-sig")
-        if "<DATE>" in df.columns:
-            df["date"] = pd.to_datetime(
-                df["<DATE>"].astype(str) + " " + df["<TIME>"].astype(str) + ":00:00"
-            )
-        elif "date" in df.columns:
-            df["date"] = pd.to_datetime(df["date"])
-        else:
-            st.sidebar.error("Нет колонки с датой!")
-            st.stop()
-
-        st.session_state.df = df
-        st.session_state.instrument = instrument
-        st.sidebar.success("Данные загружены")
-    except FileNotFoundError:
-        st.sidebar.error("Файл data.csv не найден!")
-        st.stop()
-else:
-    df = st.session_state.df
-
-# -----------------------------
-# Диапазон дат (по умолчанию последние 150 дней)
+# Диапазон дат (150 дней)
 # -----------------------------
 max_date = df["date"].max().date()
 min_date = df["date"].min().date()
@@ -86,8 +76,10 @@ default_start_date = max_date - timedelta(days=150)
 
 st.sidebar.markdown("### Период")
 col1, col2 = st.sidebar.columns(2)
+
 with col1:
     start_date = st.date_input("Начало", value=default_start_date, min_value=min_date, max_value=max_date)
+
 with col2:
     end_date = st.date_input("Конец", value=max_date, min_value=min_date, max_value=max_date)
 
@@ -97,6 +89,7 @@ st.sidebar.markdown("---")
 # Скользящие средние
 # -----------------------------
 st.sidebar.header("Moving Averages")
+
 ma_periods = st.sidebar.multiselect(
     "Периоды MA",
     options=[5, 10, 20, 30, 50, 100, 150, 200],
@@ -113,6 +106,7 @@ st.sidebar.markdown("---")
 # Прогнозы
 # -----------------------------
 st.sidebar.header("Прогнозы")
+
 prediction_files = []
 if os.path.exists(pred_dir):
     prediction_files = [f for f in os.listdir(pred_dir) if f.endswith(".csv")]
@@ -124,7 +118,7 @@ for file in selected_preds:
     pred_colors[file] = st.sidebar.color_picker(f"Цвет {file}", "#00FF00")
 
 # -----------------------------
-# Фильтрация данных по датам
+# Фильтрация
 # -----------------------------
 filtered = df[
     (df["date"] >= pd.to_datetime(start_date)) &
@@ -132,7 +126,7 @@ filtered = df[
 ].copy()
 
 # -----------------------------
-# Построение графика
+# График
 # -----------------------------
 fig = go.Figure()
 
@@ -147,10 +141,11 @@ fig.add_trace(
     )
 )
 
-# Скользящие средние
+# MA
 for period in ma_periods:
     ma = filtered["<CLOSE>"].rolling(period).mean()
     ma = ma.shift(-period // 2)
+
     fig.add_trace(
         go.Scatter(
             x=filtered["date"],
@@ -173,7 +168,11 @@ for file in selected_preds:
                 x=pred_df["date"],
                 y=pred_df["prediction"],
                 mode="lines",
-                line=dict(dash="dash", width=2, color=pred_colors[file]),
+                line=dict(
+                    dash="dash",
+                    width=2,
+                    color=pred_colors[file]
+                ),
                 name=file
             )
         )
@@ -181,7 +180,7 @@ for file in selected_preds:
         st.sidebar.error(f"Ошибка в {file}")
 
 # -----------------------------
-# Настройки графика
+# Layout
 # -----------------------------
 fig.update_layout(
     height=580,
