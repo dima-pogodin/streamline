@@ -12,7 +12,7 @@ st.set_page_config(layout="wide")
 # -----------------------------
 # Sidebar: заголовок
 # -----------------------------
-st.sidebar.markdown("# 📈 Multi-Asset Dashboard")
+st.sidebar.markdown("# 📈 Прогнозы")
 st.sidebar.markdown("### Выберите инструмент и настройки")
 
 # -----------------------------
