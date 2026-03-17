@@ -92,8 +92,8 @@ st.sidebar.header("Moving Averages")
 
 ma_periods = st.sidebar.multiselect(
     "Периоды MA",
-    options=[5, 10, 20, 30, 50, 100, 150, 200],
-    default=[20, 50]
+    options=[6, 12, 20, 30, 50, 100, 150, 200],
+    default=[6]
 )
 
 ma_colors = {}
